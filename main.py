@@ -1,18 +1,17 @@
-
 import asyncio
 import subprocess
 import aiohttp
 from datetime import datetime
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright
+from playwright_stealth import Stealth
 
 
 # ============================================================
 # CONFIG
 # ============================================================
-today_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-URL = "https://duckduckgo.com/"
 
+URL = "https://duckduckgo.com/"
 OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 OLLAMA_MODEL = "qwen3.5:9b"
 
@@ -26,13 +25,11 @@ MAX_TOTAL_CHARS = 30000
 # ============================================================
 
 async def get_all_links(page):
-
-    # Select the main title links only
     links = await page.locator(
         'li[data-layout="organic"] h2 a[href]'
     ).evaluate_all("""
         elements => elements.map(a => ({
-            text: a.innerText.trim(),
+            text: (a.innerText || a.textContent || "").trim(),
             url: a.href
         }))
     """)
@@ -52,14 +49,13 @@ async def get_all_links(page):
 
         hostname = parsed.hostname.lower()
 
-        # Exclude DuckDuckGo internal links
+        # Exclude DuckDuckGo internal links.
         if (
             hostname == "duckduckgo.com"
             or hostname.endswith(".duckduckgo.com")
         ):
             continue
 
-        # Remove duplicate URLs
         if url in seen:
             continue
 
@@ -74,7 +70,6 @@ async def get_all_links(page):
 # ============================================================
 
 async def scrape_website(context, url):
-
     page = await context.new_page()
 
     try:
@@ -86,11 +81,9 @@ async def scrape_website(context, url):
             timeout=30000
         )
 
-        # Allow the page to render its initial content
+        # Allow initial page content to render.
         await page.wait_for_timeout(1500)
 
-        # Extract readable text while removing common
-        # navigation, styling, and script elements
         text = await page.locator("body").evaluate("""
             body => {
                 const clone = body.cloneNode(true);
@@ -105,7 +98,6 @@ async def scrape_website(context, url):
             }
         """)
 
-        # Normalize whitespace
         lines = [
             line.strip()
             for line in text.splitlines()
@@ -120,7 +112,6 @@ async def scrape_website(context, url):
             return ""
 
         print(f"Scraped {len(text)} characters.")
-
         return text
 
     except Exception as e:
@@ -136,7 +127,6 @@ async def scrape_website(context, url):
 # ============================================================
 
 async def analyze_text(search_query, scraped_pages):
-
     if not scraped_pages:
         print("No website text was collected.")
         return ""
@@ -144,7 +134,6 @@ async def analyze_text(search_query, scraped_pages):
     combined_text = []
 
     for index, item in enumerate(scraped_pages, start=1):
-
         section = (
             f"\n{'=' * 60}\n"
             f"SOURCE {index}: {item['title']}\n"
@@ -152,13 +141,12 @@ async def analyze_text(search_query, scraped_pages):
             f"{'=' * 60}\n"
             f"{item['text']}\n"
         )
-
         combined_text.append(section)
 
     source_text = "\n".join(combined_text)
-
-    # Keep the total input bounded
     source_text = source_text[:MAX_TOTAL_CHARS]
+
+    today_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     prompt = f"""
 You are a factual research assistant. Today's date is {today_date}.
@@ -212,17 +200,14 @@ SCRAPED WEBSITE CONTENT:
     }
 
     timeout = aiohttp.ClientTimeout(total=300)
-
     print("\nSending scraped text to Ollama...")
 
     async with aiohttp.ClientSession() as session:
-
         async with session.post(
             OLLAMA_URL,
             json=payload,
             timeout=timeout
         ) as response:
-
             response_text = await response.text()
 
             if response.status != 200:
@@ -230,13 +215,11 @@ SCRAPED WEBSITE CONTENT:
                 print(f"HTTP Status: {response.status}")
                 print(response_text)
                 print("==================================")
-
                 raise RuntimeError(
                     f"Ollama returned HTTP {response.status}"
                 )
 
             data = await response.json()
-
             return data.get("response", "")
 
 
@@ -245,7 +228,6 @@ SCRAPED WEBSITE CONTENT:
 # ============================================================
 
 async def main():
-
     search_query = input("Enter your search: ").strip()
 
     if not search_query:
@@ -253,48 +235,27 @@ async def main():
         return
 
     browser = None
+    context = None
 
     try:
-
-        async with async_playwright() as p:
-
-            # ==================================================
-            # LAUNCH BROWSER
-            # ==================================================
-
+        # The current playwright-stealth API applies its scripts to
+        # pages created through this Playwright instance.
+        async with Stealth().use_async(async_playwright()) as p:
             browser = await p.chromium.launch(
-                headless=False,
+                headless=True,
                 args=[
-                    "--disable-http2",
-                    "--disable-quic",
-                    "--disable-blink-features=AutomationControlled",
                     "--disable-dev-shm-usage",
                     "--no-first-run",
-                    "--no-default-browser-check",
-                    "--start-maximized",
-                    "--disable-infobars"
+                    "--no-default-browser-check"
                 ]
             )
 
-            # ==================================================
-            # BROWSER CONTEXT
-            # ==================================================
-
             context = await browser.new_context(
-                user_agent=(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/122.0.0.0 Safari/537.36"
-                ),
                 locale="en-US",
                 timezone_id="America/New_York"
             )
 
             page = await context.new_page()
-
-            # ==================================================
-            # OPEN DUCKDUCKGO
-            # ==================================================
 
             print("Opening DuckDuckGo...")
 
@@ -304,47 +265,71 @@ async def main():
                 timeout=60000
             )
 
-            # ==================================================
-            # FIND SEARCH BOX
-            # ==================================================
-
+            # Find the homepage search box.
             search_box = page.locator(
                 "#searchbox_homepage textarea"
             )
 
-            await search_box.wait_for(
-                state="visible",
-                timeout=30000
-            )
+            try:
+                await search_box.wait_for(
+                    state="visible",
+                    timeout=30000
+                )
+            except Exception as e:
+                print(f"Could not find the DuckDuckGo search box: {e}")
+                print(f"Final URL: {page.url}")
+                print(f"Page title: {await page.title()}")
+
+                await page.screenshot(
+                    path="headless_debug.png",
+                    full_page=True
+                )
+                with open(
+                    "headless_debug.html",
+                    "w",
+                    encoding="utf-8"
+                ) as f:
+                    f.write(await page.content())
+
+                print("Saved headless_debug.png and headless_debug.html")
+                return
 
             print("Search box found.")
-
-            # ==================================================
-            # SEARCH
-            # ==================================================
 
             await search_box.fill(search_query)
             await search_box.press("Enter")
 
             print(f"Searching for: {search_query}")
 
-            # Wait for organic result titles
-            await page.locator(
-                'li[data-layout="organic"] h2 a[href]'
-            ).first.wait_for(
-                state="visible",
-                timeout=30000
-            )
+            try:
+                await page.locator(
+                    'li[data-layout="organic"] h2 a[href]'
+                ).first.wait_for(
+                    state="attached",
+                    timeout=30000
+                )
+                print("Search results loaded.")
 
-            print("Search results loaded.")
+            except Exception as e:
+                print(f"Could not find organic search results: {e}")
+                print(f"Final URL: {page.url}")
+                print(f"Page title: {await page.title()}")
 
-            # ==================================================
-            # EXTRACT LINKS
-            # ==================================================
+                await page.screenshot(
+                    path="headless_debug.png",
+                    full_page=True
+                )
+                with open(
+                    "headless_debug.html",
+                    "w",
+                    encoding="utf-8"
+                ) as f:
+                    f.write(await page.content())
+
+                print("Saved headless_debug.png and headless_debug.html")
+                return
 
             links = await get_all_links(page)
-
-            # Only use the top four results
             top_links = links[:MAX_LINKS]
 
             print(f"\nSelected {len(top_links)} website links:\n")
@@ -357,14 +342,9 @@ async def main():
                 print("No organic website links found.")
                 return
 
-            # ==================================================
-            # SCRAPE TOP FOUR WEBSITES
-            # ==================================================
-
             scraped_pages = []
 
             for index, link in enumerate(top_links, start=1):
-
                 print(
                     f"\nProcessing website {index}/{len(top_links)}"
                 )
@@ -382,12 +362,10 @@ async def main():
                     })
 
             await context.close()
+            context = None
+
             await browser.close()
             browser = None
-
-        # ======================================================
-        # SUMMARIZE SCRAPED CONTENT
-        # ======================================================
 
         if not scraped_pages:
             print("\nNo website content could be scraped.")
@@ -403,10 +381,6 @@ async def main():
             scraped_pages
         )
 
-        # ======================================================
-        # DISPLAY SUMMARY
-        # ======================================================
-
         print("\n========== SEARCH SUMMARY ==========\n")
         print(summary)
         print("\n====================================\n")
@@ -415,6 +389,12 @@ async def main():
         print(f"\nError: {type(e).__name__}: {e}")
 
     finally:
+        if context is not None:
+            try:
+                await context.close()
+            except Exception:
+                pass
+
         if browser is not None:
             try:
                 await browser.close()
@@ -427,8 +407,7 @@ async def main():
 # ============================================================
 
 if __name__ == "__main__":
-
-    # Display available Ollama models
+    # Display available Ollama models.
     subprocess.run(
         ["ollama", "list"],
         check=False
