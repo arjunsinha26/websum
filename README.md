@@ -7,12 +7,10 @@
 **Search the web. Extract useful content. Generate a source-informed summary with your local Ollama model.**
 
 <br>
-
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Playwright](https://img.shields.io/badge/Playwright-Browser_Automation-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)
 ![Ollama](https://img.shields.io/badge/Ollama-Local_AI-111111?style=for-the-badge)
 ![DuckDuckGo](https://img.shields.io/badge/Search-DuckDuckGo-DE5833?style=for-the-badge)
-
 <br>
 
 [Features](#-features) · [How It Works](#-how-it-works) · [Installation](#-installation) · [Configuration](#-configuration) · [Limitations](#-limitations)
