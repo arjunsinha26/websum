@@ -1,4 +1,4 @@
-<div align="center">
+ <div align="center">
 
 # WebSum
 
@@ -15,7 +15,7 @@
 
 <br>
 
-[Features](#-features) · [How It Works](#-how-it-works) · [Installation](#-installation) · [Configuration](#-configuration) · [Limitations](#-limitations)
+[Features](#-features) · [How It Works](#-how-it-works) · [Installation](#-installation) · [Configuration](#-configuration) · [Limitations](#-limitations) · [License](#-license)
 
 </div>
 
@@ -27,7 +27,7 @@
 
 The goal is to make it easier to review information across several pages without manually opening and reading every result.
 
-> **Privacy-minded by design:** the summarization request is sent to your local Ollama API. Web search and website visits still connect to external services.
+> **Privacy-minded by design:** The summarization request is sent to your local Ollama API. Web searches and website visits still connect to external services.
 
 ## ✨ Features
 
@@ -37,10 +37,10 @@ The goal is to make it easier to review information across several pages without
 | 🔗 Result collection | Collects up to four unique organic result links |
 | 🧭 Browser automation | Uses Playwright with Chromium to open result pages |
 | 🧹 Text extraction | Removes common page elements before collecting readable text |
-| 🧠 Local AI summary | Sends the collected text to a local Ollama model |
+| 🧠 Local AI summary | Sends collected text to a local Ollama model |
 | 🗂️ Multi-source analysis | Prompts the model to summarize findings and compare sources |
 | 📏 Text limits | Caps text collected per site and across all sources |
-| 🖥️ Visible browser | Shows Chromium by default so you can observe the workflow |
+| 🖥️ Browser visibility | Supports visible or headless Chromium operation |
 
 ## ⚙️ How It Works
 
@@ -69,9 +69,16 @@ flowchart TD
 ![Playwright](https://img.shields.io/badge/Playwright-2EAD33?style=flat-square&logo=playwright&logoColor=white)
 ![Ollama](https://img.shields.io/badge/Ollama-000000?style=flat-square)
 ![DuckDuckGo](https://img.shields.io/badge/DuckDuckGo-DE5833?style=flat-square)
-![aiohttp](https://img.shields.io/badge/aiohttp-async_HTTP-blue?style=flat-square)
+![aiohttp](https://img.shields.io/badge/aiohttp-Async_HTTP-blue?style=flat-square)
 
 </div>
+
+- **Python** — core application logic and asynchronous execution
+- **Playwright** — browser automation and website text extraction
+- **playwright-stealth** — stealth-oriented browser configuration
+- **aiohttp** — asynchronous requests to Ollama
+- **DuckDuckGo** — web search
+- **Ollama** — local language-model inference
 
 ## 📋 Requirements
 
@@ -79,6 +86,7 @@ flowchart TD
 - [Ollama](https://ollama.com/) installed and running locally
 - The `qwen3.5:9b` model available in Ollama
 - Playwright with Chromium installed
+- An active internet connection for searching and visiting websites
 
 ## 🚀 Installation
 
@@ -92,7 +100,7 @@ cd websum
 ### 2. Install Python dependencies
 
 ```bash
-python -m pip install playwright aiohttp
+python -m pip install aiohttp playwright playwright-stealth
 ```
 
 ### 3. Install Chromium for Playwright
@@ -113,6 +121,12 @@ Start Ollama and make sure its local API is available at:
 http://127.0.0.1:11434
 ```
 
+You can check which models are available by running:
+
+```bash
+ollama list
+```
+
 ## ▶️ Usage
 
 Run WebSum from the project directory:
@@ -123,13 +137,21 @@ python main.py
 
 Enter your search query when prompted. The script will search, scrape the selected pages, and print the model-generated summary.
 
+Example:
+
+```text
+Enter your search: Latest developments in renewable energy
+```
+
+WebSum then processes the selected search results and displays the generated summary in the terminal.
+
 ## 🎛️ Configuration
 
-The current implementation keeps its settings as constants near the top of `main.py`.
+The implementation keeps its settings as constants near the top of `main.py`.
 
 | Setting | Default | Purpose |
-|---|---:|---|
-| `URL` | DuckDuckGo search URL | Search endpoint |
+|---|---|---|
+| `URL` | `https://duckduckgo.com/` | Search endpoint |
 | `OLLAMA_URL` | `http://127.0.0.1:11434/api/generate` | Local Ollama generation endpoint |
 | `OLLAMA_MODEL` | `qwen3.5:9b` | Model used for summarization |
 | `MAX_LINKS` | `4` | Maximum number of result links |
@@ -140,32 +162,40 @@ Change these constants in `main.py` to adjust the current configuration.
 
 ### 🖥️ Show or hide Chromium
 
-The script launches Chromium with `headless=False` by default, so the browser window is visible.
+The script launches Chromium using the `headless` option.
 
-To run without displaying the browser, change the launch option to:
+To display the browser window:
+
+```python
+headless=False
+```
+
+To run without displaying the browser window:
 
 ```python
 headless=True
 ```
 
-The existing launch arguments are Chromium-specific. If you switch to Firefox or WebKit, review the launch options first.
+Headless mode may behave differently on some websites. Search pages can change their layout or present verification challenges, so test both modes if you encounter issues.
 
 ## 📁 Project Structure
 
 ```text
 websum/
 ├── main.py       # Main search, scraping, and summarization workflow
-└── README.md     # Project documentation
+├── README.md     # Project documentation
+└── LICENSE       # MIT License
 ```
 
 ## ⚠️ Limitations
 
-- **Limited search coverage:** only the first four unique organic results are collected by default.
-- **Blocked websites:** some sites may block automated browsing or require consent, verification, or other interactions.
-- **Extraction quality:** complex pages may produce incomplete or irrelevant text.
-- **Context window:** characters are not tokens. The combined text and prompt may exceed the model's available context, depending on tokenization and model settings.
-- **Summary accuracy:** summaries depend on the pages successfully scraped and the model's interpretation. Check important claims against the original sources.
-- **Local performance:** generation speed depends on your hardware and the selected Ollama model.
+- **Limited search coverage:** Only the first four unique organic results are collected by default.
+- **Blocked websites:** Some sites may block automated browsing or require consent, verification, or additional interactions.
+- **Extraction quality:** Complex pages may produce incomplete or irrelevant text.
+- **Context window:** Characters are not tokens. The combined text and prompt may exceed the model's available context, depending on tokenization and model settings.
+- **Summary accuracy:** Summaries depend on the pages successfully scraped and the model's interpretation. Check important claims against the original sources.
+- **Local performance:** Generation speed depends on your hardware and the selected Ollama model.
+- **Search-result changes:** Changes to DuckDuckGo's page structure may require updates to the selectors used by Playwright.
 
 ## 🛠️ Troubleshooting
 
@@ -202,7 +232,7 @@ python -m playwright install chromium
 <details>
 <summary><strong>A website returns little or no text</strong></summary>
 
-The site may block automated access, require interaction, or render content in a way the current scraper does not capture. Check the visible browser for redirects, consent prompts, or verification pages.
+The site may block automated access, require interaction, or render content in a way the current scraper does not capture. Check the browser for redirects, consent prompts, or verification pages.
 
 </details>
 
@@ -215,15 +245,26 @@ Reduce `MAX_CHARS_PER_SITE` or `MAX_TOTAL_CHARS` in `main.py`. The prompt, sourc
 
 ## 🔐 Responsible Use
 
-Use WebSum only on websites you are permitted to access. Respect site terms, applicable robots directives, copyright, and rate limits. Do not use it to bypass access controls or collect private information.
+Use WebSum only on websites you are permitted to access. Respect website terms, applicable robots directives, copyright, and rate limits. Do not use it to bypass access controls or collect private information.
 
 ## 📄 License
 
-No license is currently specified in the repository. If you intend to publish WebSum as open source, add a `LICENSE` file and choose a license that matches how you want others to use the project. For example, the MIT License permits broad reuse while requiring the copyright and license notice to be retained.
+WebSum is licensed under the **MIT License**.
+
+You are free to use, copy, modify, merge, publish, distribute, sublicense, and sell copies of the software, subject to the conditions of the license.
+
+See the [LICENSE](LICENSE) file for the full license text.
 
 ## 🤝 Contributing
 
-Bug reports, ideas, and improvements are welcome. For substantial changes, open an issue first to discuss the proposed approach.
+Bug reports, ideas, and improvements are welcome.
+
+1. Fork the repository.
+2. Create a branch for your changes.
+3. Make and test your improvements.
+4. Submit a pull request describing your changes.
+
+For substantial changes, open an issue first to discuss the proposed approach.
 
 ---
 
@@ -231,6 +272,6 @@ Bug reports, ideas, and improvements are welcome. For substantial changes, open 
 
 **Built with Python, Playwright, and local AI.**
 
-<sub>If WebSum is useful to you, consider giving the repository a ⭐ on GitHub.</sub>
+If WebSum is useful to you, consider giving the repository a ⭐ on GitHub.
 
 </div>
